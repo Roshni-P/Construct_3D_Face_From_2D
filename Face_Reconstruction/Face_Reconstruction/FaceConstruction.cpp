@@ -1,0 +1,171 @@
+#include <iostream>
+#include "FaceConstruction.h"
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/objdetect.hpp>
+#include <opencv2/face/facemarkLBF.hpp>
+
+#include "eos/core/Image.hpp"
+#include "eos/core/image/opencv_interop.hpp"
+#include "eos/morphablemodel/Blendshape.hpp"
+#include "eos/morphablemodel/MorphableModel.hpp"
+
+#include "Eigen/Core"
+
+#include "boost/filesystem.hpp"
+#include "boost/program_options.hpp"
+
+
+#include "eos/core/Landmark.hpp"
+#include "eos/core/LandmarkMapper.hpp"
+#include "eos/core/read_pts_landmarks.hpp"
+#include "eos/core/write_obj.hpp"
+#include "eos/fitting/RenderingParameters.hpp"
+#include "eos/fitting/linear_shape_fitting.hpp"
+#include "eos/fitting/orthographic_camera_estimation_linear.hpp"
+#include "eos/render/texture_extraction.hpp"
+
+
+#include "opencv2/core/core.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/imgcodecs/imgcodecs.hpp"
+using namespace cv;
+using namespace cv::face;
+
+using namespace eos;
+namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+using eos::core::Landmark;
+using eos::core::LandmarkCollection;
+using Eigen::Vector2f;
+using Eigen::Vector4f;
+using cv::Mat;
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
+
+FaceConstruction::FaceConstruction()
+{
+}
+
+FaceConstruction::~FaceConstruction()
+{
+}
+
+/*	
+* Desc:	This function opens the File Open dialog
+*		using which we can select the image file.
+* Return: Filename
+*/
+string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
+{
+	OPENFILENAMEA ofn;
+	//LPWSTR fileName = NULL;
+	char filename[MAX_PATH];
+	ZeroMemory(&filename, sizeof(filename));
+	ZeroMemory(&ofn, sizeof(ofn));
+
+	ofn.lStructSize = sizeof(OPENFILENAMEA);
+	ofn.hwndOwner = owner;
+	ofn.lpstrFilter = filter;
+	ofn.lpstrFile = filename;
+	ofn.nMaxFile = MAX_PATH;
+	ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+	ofn.lpstrDefExt = "";
+
+	string fileNameStr;
+
+	if (GetOpenFileNameA(&ofn))
+		fileNameStr = filename;
+
+	return fileNameStr;
+}
+
+/*
+* Desc:	This function opens a 2D image file, detects 
+*		facial landmarks using haarcascade, loads Surrey 
+*		Face model. The face is then rendered onto 3D
+*		
+* Return: Error/Success Code
+*/int FaceConstruction::Reconstruct()
+{
+	//Select Image File
+	string strImgFile = OpenImageFile();
+	if (strImgFile.empty())
+		return EXIT_FAILURE;
+
+	//Obtain 2D Image
+	Mat img = imread(strImgFile, IMREAD_UNCHANGED);
+	if (img.empty())
+	{
+		cout << "Error loading image!" << endl;
+		return -1;
+	}
+
+	//Detect Facial Landmarks
+	CascadeClassifier faceCascade;
+	faceCascade.load("..\\Data\\haarcascade_frontalface_alt.xml");
+	
+	//Load Surrey Face Model
+	Ptr<Facemark> facemark = FacemarkLBF::create();
+	// Load landmark detector
+	facemark->loadModel("D:\\Project\\install\\opencv\\lbfmodel.yaml");
+	cout << "Loaded model" << endl;
+
+	vector<Rect> faces;
+	resize(img, img, Size(460, 460), 0, 0, INTER_LINEAR_EXACT);
+
+	Mat gray;
+	if (img.channels() > 1) 
+	{
+		cvtColor(img, gray, COLOR_BGR2GRAY);
+	}
+	else 
+	{
+		gray = img.clone();
+	}
+	equalizeHist(gray, gray);
+
+	faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, Size(30, 30));
+
+	vector< vector<Point2f> > shapes;
+	if (facemark->fit(img, faces, shapes))
+	{
+		for (size_t i = 0; i < faces.size(); i++)
+		{
+			cv::rectangle(img, faces[i], Scalar(255, 0, 0));
+		}
+		for (unsigned long i = 0; i < faces.size(); i++) 
+		{
+			for (unsigned long k = 0; k < shapes[i].size(); k++)
+				cv::circle(img, shapes[i][k], 5, cv::Scalar(0, 0, 255), FILLED);
+		}
+	}
+
+	//Fit Face model
+	string modelfile = "sfm_shape_3448.bin";
+	morphablemodel::MorphableModel morphable_model;
+	try
+	{
+		morphable_model = morphablemodel::load_model(modelfile);
+	}
+	catch (const std::runtime_error& e)
+	{
+		cout << "Error loading the Morphable Model: " << e.what() << endl;
+		return EXIT_FAILURE;
+	}
+
+	//Render Face
+	// These will be the final 2D and 3D points used for the fitting:
+	vector<Vector4f> model_points; // the points in the 3D shape model
+	vector<int> vertex_indices;    // their vertex indices
+	vector<Vector2f> image_points; // the corresponding 2D landmark points
+
+
+	//Light & Pose
+
+	return 0;
+}
