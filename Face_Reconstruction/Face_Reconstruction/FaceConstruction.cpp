@@ -32,6 +32,10 @@
 #include "opencv2/imgcodecs/imgcodecs.hpp"
 
 #include "glut.h"
+#include "tiny_obj_loader.h"
+#include "glew.h"
+#include "glfw3.h"
+#include "gl\GL.h"
 
 using namespace cv;
 using namespace cv::face;
@@ -95,7 +99,7 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 */int FaceConstruction::Reconstruct()
 {
 	//Select Image File
-	string strImgFile = OpenImageFile();
+	string strImgFile = "D:\\Roshni\\Roshni_Photo.jpg";//OpenImageFile();
 	if (strImgFile.empty())
 		return EXIT_FAILURE;
 
@@ -224,6 +228,7 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 	// Save the mesh as textured obj:
 	fs::path outputfile = /*outputbasename +*/ "out.obj";
 	core::write_textured_obj(mesh, outputfile.string());
+	string objfilepath = outputfile.string();
 
 	// And save the texture map:
 	outputfile.replace_extension(".texture.png");
@@ -233,6 +238,76 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 		<< outputfile.stem().stem() << "." << endl;
 
 	glClearColor(1.0, 1.0, 1.0, 0.0);
+
+	// Parsing the obj file
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shape;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn;
+	std::string err;
+
+	bool ret = tinyobj::LoadObj(&attrib, &shape, &materials, &warn, &err, objfilepath.c_str());
+
+	if (!warn.empty()) {
+		std::cout << "WARN: " << warn << std::endl;
+	}
+	if (!err.empty()) {
+		std::cerr << "ERR: " << err << std::endl;
+	}
+
+	GLuint VAO, VBO, EBO;
+	std::vector<float> vertices;
+	std::vector<unsigned int> indices;
+
+	for (const auto& sh : shape) {
+		for (const auto& index : sh.mesh.indices) {
+			vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]); // x
+			vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]); // y
+			vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]); // z
+			indices.push_back(indices.size());
+		}
+	}
+
+	// Setup OpenGL buffers
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindVertexArray(0);
+
+	// 3. Create a windowed mode window and its OpenGL context
+	GLFWwindow* window = glfwCreateWindow(800, 600, "3D Face", NULL, NULL);
+	if (!window) {
+		std::cerr << "Failed to create GLFW window\n";
+		glfwTerminate();
+		return -1;
+	}
+
+	// 4. Make the window's context current
+	glfwMakeContextCurrent(window);
+
+	// Shader setup...
+	while (!glfwWindowShouldClose(window)) {
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Use shader
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
 
 	return EXIT_SUCCESS;
 }

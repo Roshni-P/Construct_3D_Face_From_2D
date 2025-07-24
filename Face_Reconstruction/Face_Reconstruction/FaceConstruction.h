@@ -1,6 +1,11 @@
 #pragma once
+#ifndef TINYOBJLOADER_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
+#endif
+
 #include <windows.h>
 #include <string>
+
 
 class FaceConstruction
 {
