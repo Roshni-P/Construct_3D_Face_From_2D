@@ -31,11 +31,11 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/imgcodecs/imgcodecs.hpp"
 
-#include "glut.h"
 #include "tiny_obj_loader.h"
 #include "glew.h"
 #include "glfw3.h"
 #include "gl\GL.h"
+#include "glut.h"
 
 using namespace cv;
 using namespace cv::face;
@@ -96,10 +96,11 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 *		Face model. The face is then rendered onto 3D
 *		
 * Return: Error/Success Code
-*/int FaceConstruction::Reconstruct()
+*/
+int FaceConstruction::Reconstruct()
 {
 	//Select Image File
-	string strImgFile = "D:\\Roshni\\Roshni_Photo.jpg";//OpenImageFile();
+	string strImgFile = OpenImageFile();
 	if (strImgFile.empty())
 		return EXIT_FAILURE;
 
@@ -237,8 +238,13 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 	cout << "Finished fitting and wrote result mesh and texture to files with basename "
 		<< outputfile.stem().stem() << "." << endl;
 
-	glClearColor(1.0, 1.0, 1.0, 0.0);
+	Create3DFace(objfilepath);
 
+	return EXIT_SUCCESS;
+}
+
+int FaceConstruction::Create3DFace(string objfilepath)
+{
 	// Parsing the obj file
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shape;
@@ -268,6 +274,28 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 		}
 	}
 
+	if (!glfwInit()) {
+		std::cerr << "Failed to initialize GLFW\n";
+		return -1;
+	}
+
+	// 3. Create a windowed mode window and its OpenGL context
+	GLFWwindow* window = glfwCreateWindow(800, 600, "3D Face", NULL, NULL);
+	if (!window) {
+		std::cerr << "Failed to create GLFW window\n";
+		glfwTerminate();
+		return -1;
+	}
+
+	// 4. Make the window's context current
+	glfwMakeContextCurrent(window);
+
+	glewExperimental = GL_TRUE;
+	if (glewInit() != GLEW_OK) {
+		std::cerr << "Failed to initialize GLEW\n";
+		return -1;
+	}
+
 	// Setup OpenGL buffers
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -286,17 +314,6 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 
 	glBindVertexArray(0);
 
-	// 3. Create a windowed mode window and its OpenGL context
-	GLFWwindow* window = glfwCreateWindow(800, 600, "3D Face", NULL, NULL);
-	if (!window) {
-		std::cerr << "Failed to create GLFW window\n";
-		glfwTerminate();
-		return -1;
-	}
-
-	// 4. Make the window's context current
-	glfwMakeContextCurrent(window);
-
 	// Shader setup...
 	while (!glfwWindowShouldClose(window)) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -309,5 +326,5 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 		glfwPollEvents();
 	}
 
-	return EXIT_SUCCESS;
+	return 1;
 }

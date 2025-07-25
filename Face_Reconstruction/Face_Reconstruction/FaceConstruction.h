@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <string>
 
+using namespace std;
 
 class FaceConstruction
 {
@@ -13,7 +14,8 @@ public:
 	FaceConstruction();
 	~FaceConstruction();
 	int Reconstruct();
-	std::string OpenImageFile(const char* filter = "All Files (*.*)\0*.*\0", HWND owner = NULL);
+	string OpenImageFile(const char* filter = "All Files (*.*)\0*.*\0", HWND owner = NULL);
+	int Create3DFace(string objfilepath);
 
 private:
 
