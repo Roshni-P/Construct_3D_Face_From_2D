@@ -17,7 +17,6 @@
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
-
 #include "eos/core/Landmark.hpp"
 #include "eos/core/LandmarkMapper.hpp"
 #include "eos/core/read_pts_landmarks.hpp"
@@ -26,6 +25,7 @@
 #include "eos/fitting/linear_shape_fitting.hpp"
 #include "eos/fitting/orthographic_camera_estimation_linear.hpp"
 #include "eos/render/texture_extraction.hpp"
+#include "eos/render/render.hpp"
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -52,6 +52,23 @@ using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
+
+// Simple shaders
+const char* vertexShaderSource = R"glsl(
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    void main() {
+        gl_Position = vec4(aPos, 1.0);
+    }
+)glsl";
+
+const char* fragmentShaderSource = R"glsl(
+    #version 330 core
+    out vec4 FragColor;
+    void main() {
+        FragColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+)glsl";
 
 FaceConstruction::FaceConstruction()
 {
@@ -261,15 +278,28 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		std::cerr << "ERR: " << err << std::endl;
 	}
 
+	struct Vertex
+	{
+		float x, y, z;
+		float u, v;
+	};
 	GLuint VAO, VBO, EBO;
-	std::vector<float> vertices;
 	std::vector<unsigned int> indices;
+	std::vector<Vertex> vertexBuffer;
 
 	for (const auto& sh : shape) {
 		for (const auto& index : sh.mesh.indices) {
-			vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]); // x
-			vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]); // y
-			vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]); // z
+			Vertex v;
+
+			//Position - x,y,z
+			v.x = (attrib.vertices[3 * index.vertex_index + 0]); //x
+			v.y = (attrib.vertices[3 * index.vertex_index + 1]); //y
+			v.z = (attrib.vertices[3 * index.vertex_index + 2]); //z
+
+			//Texture Co-ord
+			v.u = (attrib.texcoords[2 * index.texcoord_index + 0]); //u
+			v.v = (attrib.texcoords[2 * index.texcoord_index + 1]); //v
+			vertexBuffer.push_back(v);
 			indices.push_back(indices.size());
 		}
 	}
@@ -278,6 +308,9 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		std::cerr << "Failed to initialize GLFW\n";
 		return -1;
 	}
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	// 3. Create a windowed mode window and its OpenGL context
 	GLFWwindow* window = glfwCreateWindow(800, 600, "3D Face", NULL, NULL);
@@ -296,6 +329,31 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		return -1;
 	}
 
+	// Build shaders
+	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+	glCompileShader(vertexShader);
+
+	GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
+	glCompileShader(fragmentShader);
+
+	GLuint shaderProgram = glCreateProgram();
+	glAttachShader(shaderProgram, vertexShader);
+	glAttachShader(shaderProgram, fragmentShader);
+	glLinkProgram(shaderProgram);
+	// check for linking errors
+	int success;
+	char infoLog[512];
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+		std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+	}
+
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragmentShader);
+
 	// Setup OpenGL buffers
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -303,28 +361,57 @@ int FaceConstruction::Create3DFace(string objfilepath)
 
 	glBindVertexArray(VAO);
 
+	// VBO: store vertices
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(Vertex), vertexBuffer.data(), GL_STATIC_DRAW);
 
+	// EBO: store indices
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	// Position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 	glEnableVertexAttribArray(0);
 
+	//// Normal attribute
+	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	//glEnableVertexAttribArray(1);
+
+	// TexCoord attribute
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
 	glBindVertexArray(0);
+	//glBindVertexArray(VAO);
+	//glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
 	// Shader setup...
 	while (!glfwWindowShouldClose(window)) {
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// Input
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(window, true);
+
+		// Render
+		glClearColor(1.0f, 1.0f, 0.0f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Use shader
+		glUseProgram(shaderProgram);
+
 		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
+		//glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
+	// Clean up
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+	//glDeleteBuffers(1, &EBO);
+	glDeleteProgram(shaderProgram);
+
+	glfwTerminate();
 	return 1;
 }
