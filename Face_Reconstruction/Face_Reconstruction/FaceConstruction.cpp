@@ -32,10 +32,13 @@
 #include "opencv2/imgcodecs/imgcodecs.hpp"
 
 #include "tiny_obj_loader.h"
-#include "glew.h"
 #include "glfw3.h"
 #include "gl\GL.h"
 #include "glut.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 
 using namespace cv;
 using namespace cv::face;
@@ -56,21 +59,29 @@ using std::vector;
 // Simple shaders
 const char* vertexShaderSource = R"glsl(
     #version 330 core
-    layout (location = 0) in vec3 aPos;
-    void main() {
-        gl_Position = vec4(aPos, 1.0);
-    }
+	layout (location = 0) in vec3 aPos;
+
+	uniform mat4 model;
+	uniform mat4 view;
+	uniform mat4 projection;
+
+	void main()
+	{
+		gl_Position = projection * view * model * vec4(aPos, 1.0);
+	}
 )glsl";
 
 const char* fragmentShaderSource = R"glsl(
     #version 330 core
     out vec4 FragColor;
+	uniform vec3 color; 
     void main() {
-        FragColor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        FragColor = vec4(color, 1.0);
     }
 )glsl";
 
 FaceConstruction::FaceConstruction()
+	:winWidth(1366), winHeight(768), window(nullptr)
 {
 }
 
@@ -278,12 +289,6 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		std::cerr << "ERR: " << err << std::endl;
 	}
 
-	struct Vertex
-	{
-		float x, y, z;
-		float u, v;
-	};
-	GLuint VAO, VBO, EBO;
 	std::vector<unsigned int> indices;
 	std::vector<Vertex> vertexBuffer;
 
@@ -312,13 +317,13 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	// 3. Create a windowed mode window and its OpenGL context
-	GLFWwindow* window = glfwCreateWindow(800, 600, "3D Face", NULL, NULL);
-	if (!window) {
-		std::cerr << "Failed to create GLFW window\n";
-		glfwTerminate();
-		return -1;
-	}
+	// We want a normal decorated window
+	glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+
+	int errCode = CreateDisplayWindow();
+	if (errCode != 0)
+		return errCode;
 
 	// 4. Make the window's context current
 	glfwMakeContextCurrent(window);
@@ -339,6 +344,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	glCompileShader(fragmentShader);
 
 	GLuint shaderProgram = glCreateProgram();
+	
 	glAttachShader(shaderProgram, vertexShader);
 	glAttachShader(shaderProgram, fragmentShader);
 	glLinkProgram(shaderProgram);
@@ -354,6 +360,60 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
 
+	RenderMesh(shaderProgram, vertexBuffer, indices);
+
+	glDeleteProgram(shaderProgram);
+
+	//Destroy the window before terminating glfw
+	glfwDestroyWindow(window);
+	glfwTerminate();
+	return 1;
+}
+
+void FaceConstruction::SetShader(GLuint shaderID)
+{
+	// Model
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::scale(model, glm::vec3(0.01f));  // shrink face
+
+	// View (move camera back)
+	glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -3.0f));
+
+	// Projection
+	glm::mat4 projection = glm::perspective(
+		glm::radians(45.0f),
+		(float)winWidth / (float)winHeight,
+		0.1f,
+		100.0f
+	);
+
+	// Send to shader
+	glUniformMatrix4fv(glGetUniformLocation(shaderID, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+}
+
+int FaceConstruction::CreateDisplayWindow()
+{
+	// Create window (not fullscreen)
+	window = glfwCreateWindow(winWidth, winHeight, "3D Face", NULL, NULL);
+
+	// Make it maximized - fills the whole screen but keeps title bar + buttons
+	glfwMaximizeWindow(window);
+
+	glfwMakeContextCurrent(window);
+	if (!window) {
+		std::cerr << "Failed to create GLFW window\n";
+		glfwTerminate();
+		return -1;
+	}
+
+	return 0;
+}
+
+int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices)
+{
+	GLuint VAO, VBO, EBO;
 	// Setup OpenGL buffers
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -373,17 +433,11 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	//// Normal attribute
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	//glEnableVertexAttribArray(1);
-
 	// TexCoord attribute
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
 	glBindVertexArray(0);
-	//glBindVertexArray(VAO);
-	//glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
 	// Shader setup...
 	while (!glfwWindowShouldClose(window)) {
@@ -392,16 +446,31 @@ int FaceConstruction::Create3DFace(string objfilepath)
 			glfwSetWindowShouldClose(window, true);
 
 		// Render
-		glClearColor(1.0f, 1.0f, 0.0f, 0.0f);
+		glClearColor(0.827f, 0.827f, 0.827f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		// Use shader
-		glUseProgram(shaderProgram);
+		glUseProgram(shaderID);
 
 		glBindVertexArray(VAO);
+		SetShader(shaderID);
+
+		glUniform3f(glGetUniformLocation(shaderID, "color"), 1.0f, 0.8f, 0.8f); // fill color
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
 		//glDrawArrays(GL_TRIANGLES, 0, 6);
 
+		//
+		glUseProgram(shaderID);
+		glUniform3f(glGetUniformLocation(shaderID, "color"), 0.0f, 0.0f, 0.0f); // border color
+
+		glLineWidth(1.5f);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
+
+		// restore
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		//
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
@@ -409,9 +478,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	// Clean up
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
-	//glDeleteBuffers(1, &EBO);
-	glDeleteProgram(shaderProgram);
+	glDeleteBuffers(1, &EBO);
 
-	glfwTerminate();
-	return 1;
+	return 0;
 }
