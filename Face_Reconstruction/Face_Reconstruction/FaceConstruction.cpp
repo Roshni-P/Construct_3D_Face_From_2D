@@ -39,6 +39,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 using namespace cv;
 using namespace cv::face;
@@ -60,6 +62,9 @@ using std::vector;
 const char* vertexShaderSource = R"glsl(
     #version 330 core
 	layout (location = 0) in vec3 aPos;
+	layout (location = 1) in vec2 aTexCoord;
+
+	out vec2 TexCoord; 
 
 	uniform mat4 model;
 	uniform mat4 view;
@@ -68,15 +73,19 @@ const char* vertexShaderSource = R"glsl(
 	void main()
 	{
 		gl_Position = projection * view * model * vec4(aPos, 1.0);
+		TexCoord = aTexCoord;
 	}
 )glsl";
 
 const char* fragmentShaderSource = R"glsl(
     #version 330 core
+	in vec2 TexCoord;
     out vec4 FragColor;
-	uniform vec3 color; 
+
+	uniform sampler2D ourTexture;
+
     void main() {
-        FragColor = vec4(color, 1.0);
+        FragColor = texture(ourTexture, TexCoord);
     }
 )glsl";
 
@@ -326,13 +335,15 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		return errCode;
 
 	// 4. Make the window's context current
-	glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(window.get());
 
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "Failed to initialize GLEW\n";
 		return -1;
 	}
+
+	AddTexture();
 
 	// Build shaders
 	GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -365,7 +376,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	glDeleteProgram(shaderProgram);
 
 	//Destroy the window before terminating glfw
-	glfwDestroyWindow(window);
+	glfwDestroyWindow(window.get());
 	glfwTerminate();
 	return 1;
 }
@@ -396,12 +407,12 @@ void FaceConstruction::SetShader(GLuint shaderID)
 int FaceConstruction::CreateDisplayWindow()
 {
 	// Create window (not fullscreen)
-	window = glfwCreateWindow(winWidth, winHeight, "3D Face", NULL, NULL);
+	window = CreateGLFWWindow();
 
 	// Make it maximized - fills the whole screen but keeps title bar + buttons
-	glfwMaximizeWindow(window);
+	glfwMaximizeWindow(window.get());
 
-	glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(window.get());
 	if (!window) {
 		std::cerr << "Failed to create GLFW window\n";
 		glfwTerminate();
@@ -410,6 +421,19 @@ int FaceConstruction::CreateDisplayWindow()
 
 	return 0;
 }
+
+GLFWwindowInstance FaceConstruction::CreateGLFWWindow()
+{
+	GLFWwindow* win = glfwCreateWindow(winWidth, winHeight, "3D Face", NULL, NULL);
+	if (!win)
+	{
+		glfwTerminate();
+		throw std::runtime_error("Failed to create GLFW window!");
+	}
+
+	return GLFWwindowInstance(win);
+}
+
 
 int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices)
 {
@@ -440,10 +464,10 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 	glBindVertexArray(0);
 
 	// Shader setup...
-	while (!glfwWindowShouldClose(window)) {
+	while (!glfwWindowShouldClose(window.get())) {
 		// Input
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(window, true);
+		if (glfwGetKey(window.get(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(window.get(), true);
 
 		// Render
 		glClearColor(0.827f, 0.827f, 0.827f, 0.0f);
@@ -451,6 +475,14 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 
 		// Use shader
 		glUseProgram(shaderID);
+
+		// Activate and bind texture unit 0
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textureID);
+
+		// Tell shader sampler to use texture unit 0
+		glUniform1i(glGetUniformLocation(shaderID, "ourTexture"), 0);
+
 
 		glBindVertexArray(VAO);
 		SetShader(shaderID);
@@ -471,7 +503,7 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 		// restore
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		//
-		glfwSwapBuffers(window);
+		glfwSwapBuffers(window.get());
 		glfwPollEvents();
 	}
 
@@ -479,6 +511,38 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
 	glDeleteBuffers(1, &EBO);
+
+	return 0;
+}
+
+int FaceConstruction::AddTexture()
+{
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	// Set filtering & wrapping
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	stbi_set_flip_vertically_on_load(true);
+
+	// Load image (e.g., with stb_image)
+	int width, height, nrChannels;
+	unsigned char* data = stbi_load("texture.png", &width, &height, &nrChannels, 0);
+
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,
+			nrChannels == 4 ? GL_RGBA : GL_RGB,
+			GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else {
+		std::cerr << "Failed to load texture\n";
+	}
+	
+	stbi_image_free(data);
 
 	return 0;
 }

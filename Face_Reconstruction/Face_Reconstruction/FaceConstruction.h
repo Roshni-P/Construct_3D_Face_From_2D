@@ -5,19 +5,14 @@
 
 #include <windows.h>
 #include <string>
-#include "glew.h"
 #include <vector>
-
+#include <memory>
+#include "Face_DataStructures.h"
 
 using namespace std;
 class GLFWwindow;
 
-// Flattened structure of vertices, texture coords
-struct Vertex
-{
-	float x, y, z;
-	float u, v;
-};
+
 
 class FaceConstruction
 {
@@ -31,10 +26,13 @@ public:
 private:
 	void SetShader(GLuint shaderID);
 	int CreateDisplayWindow();
+	GLFWwindowInstance CreateGLFWWindow();
 	int RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices);
+	int AddTexture();
 
 	int winWidth;
 	int winHeight;
-	GLFWwindow* window;
+	GLFWwindowInstance window;
+	GLuint textureID;
 
 };

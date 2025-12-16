@@ -26,5 +26,8 @@
     <ClInclude Include="FaceConstruction.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Face_DataStructures.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
