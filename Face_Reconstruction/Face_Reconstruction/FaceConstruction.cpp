@@ -151,12 +151,12 @@ int FaceConstruction::Reconstruct()
 
 	//Detect Facial Landmarks
 	CascadeClassifier faceCascade;
-	faceCascade.load("..\\Data\\haarcascade_frontalface_alt.xml");
+	faceCascade.load(DATA_DIR "haarcascade_frontalface_alt.xml");
 	
 	//Load Surrey Face Model
 	Ptr<Facemark> facemark = FacemarkLBF::create();
 	// Load landmark detector
-	facemark->loadModel("..\\Data\\lbfmodel.yaml");
+	facemark->loadModel(DATA_DIR "lbfmodel.yaml");
 	cout << "Loaded model" << endl;
 
 	vector<Rect> faces;
@@ -185,17 +185,16 @@ int FaceConstruction::Reconstruct()
 		for (unsigned long i = 0; i < faces.size(); i++) 
 		{
 			for (unsigned long k = 0; k < shapes[i].size(); k++)
-				cv::circle(img, shapes[i][k], 1, cv::Scalar(0, 0, 255), FILLED);
+				cv::circle(img, shapes[i][k], 1, cv::Scalar(0, 0, 255));
 		}
 		imshow("Detected_shape", img);
 	}
 
-	//Fit Face model
-	string modelfile = "..\\Data\\sfm_shape_3448.bin";
+	//Load face fitting model file
 	morphablemodel::MorphableModel morphable_model;
 	try
 	{
-		morphable_model = morphablemodel::load_model(modelfile);
+		morphable_model = morphablemodel::load_model(DATA_DIR "sfm_shape_3448.bin");
 	}
 	catch (const std::runtime_error& e)
 	{
@@ -203,11 +202,11 @@ int FaceConstruction::Reconstruct()
 		return EXIT_FAILURE;
 	}
 
-	string mappingsfile = "..\\Data\\ibug_to_sfm.txt";
+	// Load Landmark mappings file
 	core::LandmarkMapper landmark_mapper;
 	try
 	{
-		landmark_mapper = core::LandmarkMapper(mappingsfile);
+		landmark_mapper = core::LandmarkMapper(DATA_DIR "ibug_to_sfm.txt");
 	}
 	catch (const std::exception& e)
 	{
@@ -263,8 +262,8 @@ int FaceConstruction::Reconstruct()
 		render::extract_texture(mesh, rendering_params.get_modelview(), rendering_params.get_projection(),
 			render::ProjectionType::Orthographic, core::from_mat_with_alpha(img));
 
-	// Save the mesh as textured obj:
-	fs::path outputfile = /*outputbasename +*/ "out.obj";
+	// Save the mesh as textured obj to the output path
+	fs::path outputfile = OUT_DIR "Face.obj";
 	core::write_textured_obj(mesh, outputfile.string());
 	string objfilepath = outputfile.string();
 
@@ -289,7 +288,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	std::string warn;
 	std::string err;
 
-	bool ret = tinyobj::LoadObj(&attrib, &shape, &materials, &warn, &err, objfilepath.c_str());
+	bool ret = tinyobj::LoadObj(&attrib, &shape, &materials, &warn, &err, objfilepath.c_str(), OUT_DIR);
 
 	if (!warn.empty()) {
 		std::cout << "WARN: " << warn << std::endl;
@@ -467,9 +466,10 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 	while (!glfwWindowShouldClose(window.get())) {
 		// Input
 		if (glfwGetKey(window.get(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(window.get(), true);
+			glfwSetWindowShouldClose(window.get(),
+				true);
 
-		// Render
+		// Colour the background in light gray
 		glClearColor(0.827f, 0.827f, 0.827f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -530,7 +530,7 @@ int FaceConstruction::AddTexture()
 
 	// Load image (e.g., with stb_image)
 	int width, height, nrChannels;
-	unsigned char* data = stbi_load("texture.png", &width, &height, &nrChannels, 0);
+	unsigned char* data = stbi_load(OUT_DIR "Face.texture.png", &width, &height, &nrChannels, 0);
 
 	if (data) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,

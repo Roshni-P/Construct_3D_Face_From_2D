@@ -106,7 +106,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;DATA_DIR="D:/Construct_3D_Face_From_2D/Face_Reconstruction/Data/";OUT_DIR="D:/Construct_3D_Face_From_2D/Face_Reconstruction/Output/";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\Project\eos\3rdparty\eigen;D:\Project\install\opencv\include\opencv2\face;D:\Project\install\opencv\x64\vc17\bin</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
