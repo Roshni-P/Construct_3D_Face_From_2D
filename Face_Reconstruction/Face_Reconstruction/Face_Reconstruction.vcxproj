@@ -71,8 +71,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>..\include\glm;..\include;D:\Boost\boost_1_87_0;D:\Project\eos\3rdparty\toml11;D:\Project\eos\3rdparty\eigen3-nnls\src;D:\Project\eos\3rdparty\eigen\Eigen;D:\Project\eos\3rdparty\nanoflann\include;D:\Project\eos\3rdparty\cereal\include;D:\Project\install\opencv\include;D:\Project\eos\include;$(IncludePath)</IncludePath>
-    <LibraryPath>..\lib;D:\Project\install\opencv\x64\vc17\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\3DFace_Dependencies\install\opencv\include;D:\3DFace_Dependencies\opencv_contrib\modules\face\include;..\include\glm;..\include;D:\3DFace_Dependencies\eos\3rdparty\toml11;D:\3DFace_Dependencies\eos\3rdparty\eigen3-nnls\src;D:\3DFace_Dependencies\eos\3rdparty\eigen;D:\3DFace_Dependencies\eos\3rdparty\nanoflann\include;D:\3DFace_Dependencies\eos\3rdparty\cereal\include;D:\3DFace_Dependencies\OpenCV\build\include;D:\3DFace_Dependencies\OpenCV\src\build\include\opencv2;D:\3DFace_Dependencies\eos\include;$(IncludePath)</IncludePath>
+    <LibraryPath>..\lib;D:\3DFace_Dependencies\build_opencv\lib\Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -108,14 +108,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;DATA_DIR="D:/Construct_3D_Face_From_2D/Face_Reconstruction/Data/";OUT_DIR="D:/Construct_3D_Face_From_2D/Face_Reconstruction/Output/";%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\Project\eos\3rdparty\eigen;D:\Project\install\opencv\include\opencv2\face;D:\Project\install\opencv\x64\vc17\bin</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Project\eos\3rdparty\eigen;D:\3DFace_Dependencies\OpenCV\contrib\modules\face\include\opencv2\face;D:\3DFace_Dependencies\build_opencv\bin\Debug</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);opencv_world4120d.lib;opengl32.lib;glfw3.lib;glew32.lib;</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);opencv_world4140d.lib;opengl32.lib;glfw3.lib;glew32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\Boost\boost_1_87_0\stage\lib;</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>

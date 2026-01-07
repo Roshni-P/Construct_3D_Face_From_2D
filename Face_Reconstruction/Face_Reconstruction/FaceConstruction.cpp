@@ -14,8 +14,8 @@
 
 #include "Eigen/Core"
 
-#include "boost/filesystem.hpp"
-#include "boost/program_options.hpp"
+//#include "boost/filesystem.hpp"
+//#include "boost/program_options.hpp"
 
 #include "eos/core/Landmark.hpp"
 #include "eos/core/LandmarkMapper.hpp"
@@ -46,8 +46,8 @@ using namespace cv;
 using namespace cv::face;
 
 using namespace eos;
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
+//namespace po = boost::program_options;
+//namespace fs = boost::filesystem;
 using eos::core::Landmark;
 using eos::core::LandmarkCollection;
 using Eigen::Vector2f;
@@ -263,7 +263,9 @@ int FaceConstruction::Reconstruct()
 			render::ProjectionType::Orthographic, core::from_mat_with_alpha(img));
 
 	// Save the mesh as textured obj to the output path
-	fs::path outputfile = OUT_DIR "Face.obj";
+	//fs::path outputfile = OUT_DIR "Face.obj";
+	std::filesystem::path outputfile = OUT_DIR "Face.obj";
+	//string outputfile = OUT_DIR "Face.obj";
 	core::write_textured_obj(mesh, outputfile.string());
 	string objfilepath = outputfile.string();
 
@@ -272,7 +274,7 @@ int FaceConstruction::Reconstruct()
 	cv::imwrite(outputfile.string(), core::to_mat(texturemap));
 
 	cout << "Finished fitting and wrote result mesh and texture to files with basename "
-		<< outputfile.stem().stem() << "." << endl;
+		<< outputfile << "." << endl;
 
 	Create3DFace(objfilepath);
 
