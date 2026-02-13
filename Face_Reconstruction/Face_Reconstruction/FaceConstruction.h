@@ -1,34 +1,32 @@
 #pragma once
-#ifndef TINYOBJLOADER_IMPLEMENTATION
-#define TINYOBJLOADER_IMPLEMENTATION
-#endif
 
-#include <windows.h>
-#include <string>
-#include <vector>
-#include <memory>
 #include "Face_DataStructures.h"
 
 using namespace std;
 class GLFWwindow;
-
-
 
 class FaceConstruction
 {
 public:
 	FaceConstruction();
 	~FaceConstruction();
-	int Reconstruct();
 	string OpenImageFile(const char* filter = "All Files (*.*)\0*.*\0", HWND owner = NULL);
+
+	int Reconstruct();
 	int Create3DFace(string objfilepath);
 
 private:
-	void SetShader(GLuint shaderID);
+	//Display - main thread
 	int CreateDisplayWindow();
 	GLFWwindowInstance CreateGLFWWindow();
-	int RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices);
+
+	int DetectFacialLandmarks(const cv::Mat& img, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
+	int LoadFaceModel(const cv::Mat& img, string objfilepath, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
+
+	void SetShader(GLuint shaderID);
 	int AddTexture();
+
+	int RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices);
 
 	int winWidth;
 	int winHeight;

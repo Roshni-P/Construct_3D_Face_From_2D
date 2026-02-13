@@ -1,43 +1,17 @@
 #include <iostream>
 #include "FaceConstruction.h"
-#include <opencv2/opencv.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/objdetect.hpp>
-#include <opencv2/face/facemarkLBF.hpp>
-
 #include "eos/core/Image.hpp"
 #include "eos/core/image/opencv_interop.hpp"
-#include "eos/morphablemodel/Blendshape.hpp"
-#include "eos/morphablemodel/MorphableModel.hpp"
-
-#include "Eigen/Core"
-
-//#include "boost/filesystem.hpp"
-//#include "boost/program_options.hpp"
-
 #include "eos/core/Landmark.hpp"
 #include "eos/core/LandmarkMapper.hpp"
 #include "eos/core/read_pts_landmarks.hpp"
 #include "eos/core/write_obj.hpp"
-#include "eos/fitting/RenderingParameters.hpp"
-#include "eos/fitting/linear_shape_fitting.hpp"
-#include "eos/fitting/orthographic_camera_estimation_linear.hpp"
-#include "eos/render/texture_extraction.hpp"
 #include "eos/render/render.hpp"
 
-#include "opencv2/core/core.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/imgcodecs/imgcodecs.hpp"
-
+#ifndef TINYOBJLOADER_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
+#endif
 #include "tiny_obj_loader.h"
-#include "glfw3.h"
-#include "gl\GL.h"
-#include "glut.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -46,8 +20,6 @@ using namespace cv;
 using namespace cv::face;
 
 using namespace eos;
-//namespace po = boost::program_options;
-//namespace fs = boost::filesystem;
 using eos::core::Landmark;
 using eos::core::LandmarkCollection;
 using Eigen::Vector2f;
@@ -133,6 +105,7 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 *		Face model. The face is then rendered onto 3D
 *		
 * Return: Error/Success Code
+*		  0 means Success
 */
 int FaceConstruction::Reconstruct()
 {
@@ -150,131 +123,14 @@ int FaceConstruction::Reconstruct()
 	}
 
 	//Detect Facial Landmarks
-	CascadeClassifier faceCascade;
-	faceCascade.load(DATA_DIR "haarcascade_frontalface_alt.xml");
-	
-	//Load Surrey Face Model
-	Ptr<Facemark> facemark = FacemarkLBF::create();
-	// Load landmark detector
-	facemark->loadModel(DATA_DIR "lbfmodel.yaml");
-	cout << "Loaded model" << endl;
-
+	vector< vector<Point2f> > facialLandmarks;
 	vector<Rect> faces;
-	resize(img, img, Size(460, 460), 0, 0, INTER_LINEAR_EXACT);
+	DetectFacialLandmarks(img, facialLandmarks, faces);
 
-	Mat gray;
-	if (img.channels() > 1) 
-	{
-		cvtColor(img, gray, COLOR_BGR2GRAY);
-	}
-	else 
-	{
-		gray = img.clone();
-	}
-	equalizeHist(gray, gray);
-
-	faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, Size(30, 30));
-
-	vector< vector<Point2f> > shapes;
-	if (facemark->fit(img, faces, shapes))
-	{
-		for (size_t i = 0; i < faces.size(); i++)
-		{
-			cv::rectangle(img, faces[i], Scalar(255, 0, 0));
-		}
-		for (unsigned long i = 0; i < faces.size(); i++) 
-		{
-			for (unsigned long k = 0; k < shapes[i].size(); k++)
-				cv::circle(img, shapes[i][k], 1, cv::Scalar(0, 0, 255));
-		}
-		imshow("Detected_shape", img);
-	}
-
+	//Load Surrey Face Model
+	string objfilepath;
+	LoadFaceModel(img, objfilepath, facialLandmarks, faces);
 	//Load face fitting model file
-	morphablemodel::MorphableModel morphable_model;
-	try
-	{
-		morphable_model = morphablemodel::load_model(DATA_DIR "sfm_shape_3448.bin");
-	}
-	catch (const std::runtime_error& e)
-	{
-		cout << "Error loading the Morphable Model: " << e.what() << endl;
-		return EXIT_FAILURE;
-	}
-
-	// Load Landmark mappings file
-	core::LandmarkMapper landmark_mapper;
-	try
-	{
-		landmark_mapper = core::LandmarkMapper(DATA_DIR "ibug_to_sfm.txt");
-	}
-	catch (const std::exception& e)
-	{
-		cout << "Error loading the landmark mappings: " << e.what() << endl;
-		return EXIT_FAILURE;
-	}
-
-	//Render Face
-	// These will be the final 2D and 3D points used for the fitting:
-	vector<Vector4f> model_points; // the points in the 3D shape model
-	vector<int> vertex_indices;    // their vertex indices
-	vector<Vector2f> image_points; // the corresponding 2D landmark points
-	//vector<Point2f> cv_img_points;
-	
-	// Sub-select all the landmarks which we have a mapping for (i.e. that are defined in the 3DMM):
-	for (unsigned long i = 0; i < faces.size(); i++)
-	{
-		for (int k = 0; k < shapes[i].size(); ++k)
-		{
-			const auto converted_name = landmark_mapper.convert(std::to_string(k+1));
-			if (!converted_name)
-			{ // no mapping defined for the current landmark
-				continue;
-			}
-			const int vertex_idx = std::stoi(converted_name.value());
-			const auto vertex = morphable_model.get_shape_model().get_mean_at_point(vertex_idx);
-			model_points.emplace_back(vertex.homogeneous());
-			vertex_indices.emplace_back(vertex_idx);
-			image_points.emplace_back(shapes[i][k].x, shapes[i][k].y);
-		}
-	}
-
-	// Estimate the camera (pose) from the 2D - 3D point correspondences
-	fitting::ScaledOrthoProjectionParameters pose =
-		fitting::estimate_orthographic_projection_linear(image_points, model_points, true, img.rows);
-	fitting::RenderingParameters rendering_params(pose, img.cols, img.rows);
-
-	// The 3D head pose can be recovered as follows - the function returns an Eigen::Vector3f with yaw, pitch,
-	// and roll angles:
-	const float yaw_angle = rendering_params.get_yaw_pitch_roll()[0];
-
-	// Estimate the shape coefficients by fitting the shape to the landmarks:
-	const Eigen::Matrix<float, 3, 4> affine_from_ortho =
-		fitting::get_3x4_affine_camera_matrix(rendering_params, img.cols, img.rows);
-	const vector<float> fitted_coeffs = fitting::fit_shape_to_landmarks_linear(
-		morphable_model.get_shape_model(), affine_from_ortho, image_points, vertex_indices);
-
-	// Obtain the full mesh with the estimated coefficients:
-	const core::Mesh mesh = morphable_model.draw_sample(fitted_coeffs, vector<float>());
-
-	// Extract the texture from the image using given mesh and camera parameters:
-	const core::Image4u texturemap =
-		render::extract_texture(mesh, rendering_params.get_modelview(), rendering_params.get_projection(),
-			render::ProjectionType::Orthographic, core::from_mat_with_alpha(img));
-
-	// Save the mesh as textured obj to the output path
-	//fs::path outputfile = OUT_DIR "Face.obj";
-	std::filesystem::path outputfile = OUT_DIR "Face.obj";
-	//string outputfile = OUT_DIR "Face.obj";
-	core::write_textured_obj(mesh, outputfile.string());
-	string objfilepath = outputfile.string();
-
-	// And save the texture map:
-	outputfile.replace_extension(".texture.png");
-	cv::imwrite(outputfile.string(), core::to_mat(texturemap));
-
-	cout << "Finished fitting and wrote result mesh and texture to files with basename "
-		<< outputfile << "." << endl;
 
 	Create3DFace(objfilepath);
 
@@ -489,22 +345,22 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 		glBindVertexArray(VAO);
 		SetShader(shaderID);
 
-		glUniform3f(glGetUniformLocation(shaderID, "color"), 1.0f, 0.8f, 0.8f); // fill color
+		// Fill the triangles with color
+		glUniform3f(glGetUniformLocation(shaderID, "color"), 1.0f, 0.8f, 0.8f);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
-		//glDrawArrays(GL_TRIANGLES, 0, 6);
 
-		//
 		glUseProgram(shaderID);
 		glUniform3f(glGetUniformLocation(shaderID, "color"), 0.0f, 0.0f, 0.0f); // border color
 
+		// Draw the border of the triangles
 		glLineWidth(1.5f);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
 
 		// restore
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		//
+
 		glfwSwapBuffers(window.get());
 		glfwPollEvents();
 	}
@@ -545,6 +401,173 @@ int FaceConstruction::AddTexture()
 	}
 	
 	stbi_image_free(data);
+
+	return 0;
+}
+
+// Detect facial landmarks using ML model file. This loads data
+// into OpenCV's Facemark API
+int FaceConstruction::DetectFacialLandmarks(const cv::Mat& img, vector<vector<Point2f>>& facialLandmarks,
+	vector<Rect>& faces)
+{
+	try
+	{
+		// Detects front facing human face
+		CascadeClassifier faceCascade;
+		faceCascade.load(DATA_DIR "haarcascade_frontalface_alt.xml");
+
+		// Detects facial landmarks using pre-trained model
+		Ptr<Facemark> facemark = FacemarkLBF::create();
+		facemark->loadModel(DATA_DIR "lbfmodel.yaml");
+		cout << "Loaded model" << endl;
+
+		resize(img, img, Size(460, 460), 0, 0, INTER_LINEAR_EXACT);
+
+		Mat gray;
+		if (img.channels() > 1)
+		{
+			cvtColor(img, gray, COLOR_BGR2GRAY);
+		}
+		else
+		{
+			// This is gray scale image
+			gray = img.clone();
+		}
+		equalizeHist(gray, gray);
+
+		faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, Size(30, 30));
+
+		if (facemark->fit(img, faces, facialLandmarks))
+		{
+			for (size_t i = 0; i < faces.size(); i++)
+			{
+				// This draws a rectangle around the detected face
+				cv::rectangle(img, faces[i], Scalar(255, 0, 0));
+			}
+			for (unsigned long i = 0; i < faces.size(); i++)
+			{
+				// This draws dots at the facial landmarks
+				for (unsigned long k = 0; k < facialLandmarks[i].size(); k++)
+					cv::circle(img, facialLandmarks[i][k], 1, cv::Scalar(0, 0, 255));
+			}
+			imshow("Detected_shape", img);
+		}
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Caught exception! " << e.what() << std::endl;
+		return 1;
+	}
+	catch (...)
+	{
+		std::cerr << "Caught an unknown exception type" << std::endl;
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+* This functions fits facial landmarks onto Surrey 3DMM
+*/
+int FaceConstruction::LoadFaceModel(const cv::Mat& img, string objfilepath, vector<vector<Point2f>>& facialLandmarks,
+	vector<Rect>& faces)
+{
+	try
+	{
+		morphablemodel::MorphableModel morphable_model;
+		try
+		{
+			morphable_model = morphablemodel::load_model(DATA_DIR "sfm_shape_3448.bin");
+		}
+		catch (const std::runtime_error& e)
+		{
+			cout << "Error loading the Morphable Model: " << e.what() << endl;
+			return EXIT_FAILURE;
+		}
+
+		// Load Landmark mappings file
+		core::LandmarkMapper landmark_mapper;
+		try
+		{
+			landmark_mapper = core::LandmarkMapper(DATA_DIR "ibug_to_sfm.txt");
+		}
+		catch (const std::exception& e)
+		{
+			cout << "Error loading the landmark mappings: " << e.what() << endl;
+			return EXIT_FAILURE;
+		}
+
+		// These will be the final 2D and 3D points used for the fitting:
+		vector<Vector4f> model_points; // the points in the 3D shape model
+		vector<int> vertex_indices;    // their vertex indices
+		vector<Vector2f> image_points; // the corresponding 2D landmark points
+
+		// Sub-select all the landmarks which we have a mapping for (i.e. that are defined in the 3DMM):
+		for (unsigned long i = 0; i < faces.size(); i++)
+		{
+			for (int k = 0; k < facialLandmarks[i].size(); ++k)
+			{
+				const auto converted_name = landmark_mapper.convert(std::to_string(k + 1));
+				if (!converted_name)
+				{ // no mapping defined for the current landmark
+					continue;
+				}
+				const int vertex_idx = std::stoi(converted_name.value());
+				const auto vertex = morphable_model.get_shape_model().get_mean_at_point(vertex_idx);
+				model_points.emplace_back(vertex.homogeneous());
+				vertex_indices.emplace_back(vertex_idx);
+				image_points.emplace_back(facialLandmarks[i][k].x, facialLandmarks[i][k].y);
+			}
+		}
+
+		// Estimate the camera (pose) from the 2D - 3D point correspondences
+		fitting::ScaledOrthoProjectionParameters pose =
+			fitting::estimate_orthographic_projection_linear(image_points, model_points, true, img.rows);
+		fitting::RenderingParameters rendering_params(pose, img.cols, img.rows);
+
+		// The 3D head pose can be recovered as follows - the function returns an Eigen::Vector3f with yaw, pitch,
+		// and roll angles:
+		const float yaw_angle = rendering_params.get_yaw_pitch_roll()[0];
+
+		// Estimate the shape coefficients by fitting the shape to the landmarks:
+		const Eigen::Matrix<float, 3, 4> affine_from_ortho =
+			fitting::get_3x4_affine_camera_matrix(rendering_params, img.cols, img.rows);
+		const vector<float> fitted_coeffs = fitting::fit_shape_to_landmarks_linear(
+			morphable_model.get_shape_model(), affine_from_ortho, image_points, vertex_indices);
+
+		// Obtain the full mesh with the estimated coefficients:
+		const core::Mesh mesh = morphable_model.draw_sample(fitted_coeffs, vector<float>());
+
+		// Extract the texture from the image using given mesh and camera parameters:
+		const core::Image4u texturemap =
+			render::extract_texture(mesh, rendering_params.get_modelview(), rendering_params.get_projection(),
+				render::ProjectionType::Orthographic, core::from_mat_with_alpha(img));
+
+		// Save the mesh as textured obj to the output path
+		//fs::path outputfile = OUT_DIR "Face.obj";
+		std::filesystem::path outputfile = OUT_DIR "Face.obj";
+		//string outputfile = OUT_DIR "Face.obj";
+		core::write_textured_obj(mesh, outputfile.string());
+		objfilepath = outputfile.string();
+
+		// And save the texture map:
+		outputfile.replace_extension(".texture.png");
+		cv::imwrite(outputfile.string(), core::to_mat(texturemap));
+
+		cout << "Finished fitting and wrote result mesh and texture to files with basename "
+			<< outputfile << "." << endl;
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Caught exception! " << e.what() << std::endl;
+		return 1;
+	}
+	catch (...)
+	{
+		std::cerr << "Caught an unknown exception type" << std::endl;
+		return 1;
+	}
 
 	return 0;
 }
