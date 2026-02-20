@@ -23,7 +23,7 @@ private:
 	int DetectFacialLandmarks(const cv::Mat& img, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
 	int LoadFaceModel(const cv::Mat& img, string objfilepath, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
 
-	void SetShader(GLuint shaderID);
+	int SetShader(GLuint shaderID);
 	int AddTexture();
 
 	int RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices);
