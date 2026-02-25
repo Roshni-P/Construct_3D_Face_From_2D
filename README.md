@@ -14,7 +14,7 @@ Some final output, 3D models of faces are shown below:
 
 ![dwayne-joe-6-Rwiq8VbKs-unsplash](https://github.com/user-attachments/assets/af7aab9a-1f37-4083-bacf-04865dc5d640) <img width="441" height="535" alt="image" src="https://github.com/user-attachments/assets/b10d3867-f639-4df5-bae8-cc9739d29003" />
 
-![StockSnap_8SM5T92EN3](https://github.com/user-attachments/assets/27e3a6c5-b002-41b6-af49-8228d154ef00) <img width="692" height="844" alt="image" src="https://github.com/user-attachments/assets/1dd84d69-2592-4281-9bd4-61124c18abf3" />
+![StockSnap_8SM5T92EN3_Snow](https://github.com/user-attachments/assets/fdd9d33d-a422-4159-a1fb-6ff2a1285355) <img width="692" height="844" alt="image" src="https://github.com/user-attachments/assets/1dd84d69-2592-4281-9bd4-61124c18abf3" />
 
 
 
