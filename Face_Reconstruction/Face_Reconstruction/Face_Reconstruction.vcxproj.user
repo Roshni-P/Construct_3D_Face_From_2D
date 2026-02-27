@@ -4,4 +4,8 @@
     <LocalDebuggerEnvironment>PATH=%PATH%;$(ProjectDir)bin;D:\3DFace_Dependencies\build_opencv\bin\Debug</LocalDebuggerEnvironment>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerEnvironment>PATH=%PATH%;$(ProjectDir)bin;D:\3DFace_Dependencies\build_opencv\bin\Release</LocalDebuggerEnvironment>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
 </Project>

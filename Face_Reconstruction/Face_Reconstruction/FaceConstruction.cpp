@@ -30,7 +30,7 @@ using std::endl;
 using std::string;
 using std::vector;
 
-// Simple shaders
+/// Simple shaders
 const char* vertexShaderSource = R"glsl(
     #version 330 core
 	layout (location = 0) in vec3 aPos;
@@ -70,18 +70,18 @@ FaceConstruction::~FaceConstruction()
 {
 }
 
-/*	
-* Desc:	This function opens the File Open dialog
-*		using which we can select the image file.
-* Return: Filename
-*/
+/**
+ * @brief Uses File Open dialog to select input image file
+ * @param filter File type filter
+ * @param owner Handle of Parent window
+ * @return string Input Filename
+ */
 string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 {
 	string fileNameStr;
 	try
 	{
 		OPENFILENAMEA ofn;
-		//LPWSTR fileName = NULL;
 		char filename[MAX_PATH];
 		ZeroMemory(&filename, sizeof(filename));
 		ZeroMemory(&ofn, sizeof(ofn));
@@ -111,24 +111,23 @@ string FaceConstruction::OpenImageFile(const char* filter, HWND owner)
 	return fileNameStr;
 }
 
-/*
-* Desc:	This function opens a 2D image file, detects 
-*		facial landmarks using haarcascade, loads Surrey 
-*		Face model. The face is then rendered onto 3D
-*		
-* Return: Error/Success Code
-*		  0 means Success
-*/
+/**
+ * @brief This function opens a 2D image file, detects
+ *			facial landmarks using haarcascade, loads Surrey 
+ *			Face model. The face is then rendered onto a 3D mesh
+ * @return 0 if Success
+ */
+
 int FaceConstruction::Reconstruct()
 {
 	try
 	{
-		//Select Image File
+		/// Select Image File
 		string strImgFile = OpenImageFile();
 		if (strImgFile.empty())
 			return EXIT_FAILURE;
 
-		//Obtain 2D Image
+		/// Obtain 2D Image
 		Mat img = imread(strImgFile, IMREAD_UNCHANGED);
 		if (img.empty())
 		{
@@ -136,16 +135,16 @@ int FaceConstruction::Reconstruct()
 			return -1;
 		}
 
-		//Detect Facial Landmarks
+		/// Detect Facial Landmarks
 		vector< vector<Point2f> > facialLandmarks;
 		vector<Rect> faces;
 		DetectFacialLandmarks(img, facialLandmarks, faces);
 
-		//Load Surrey Face Model
+		/// Load Surrey Face Model
 		string objfilepath;
 		LoadFaceModel(img, objfilepath, facialLandmarks, faces);
-		//Load face fitting model file
-
+		
+		/// Load face fitting model file
 		Create3DFace(objfilepath);
 	}
 	catch (const std::exception& e)
@@ -162,11 +161,16 @@ int FaceConstruction::Reconstruct()
 	return EXIT_SUCCESS;
 }
 
+/**
+ * @brief Constructs 3D model of detected face from object file
+ * @param objfilepath Location path of obj file
+ * @return 0 if Success
+ */
 int FaceConstruction::Create3DFace(string objfilepath)
 {
 	try
 	{
-		// Parsing the obj file
+		/// Parsing the obj file
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shape;
 		std::vector<tinyobj::material_t> materials;
@@ -189,12 +193,12 @@ int FaceConstruction::Create3DFace(string objfilepath)
 			for (const auto& index : sh.mesh.indices) {
 				Vertex v;
 
-				//Position - x,y,z
+				/// Position - x,y,z
 				v.x = (attrib.vertices[3 * index.vertex_index + 0]); //x
 				v.y = (attrib.vertices[3 * index.vertex_index + 1]); //y
 				v.z = (attrib.vertices[3 * index.vertex_index + 2]); //z
 
-				//Texture Co-ord
+				/// Texture Co-ord
 				v.u = (attrib.texcoords[2 * index.texcoord_index + 0]); //u
 				v.v = (attrib.texcoords[2 * index.texcoord_index + 1]); //v
 				vertexBuffer.push_back(v);
@@ -210,7 +214,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-		// We want a normal decorated window
+		/// We want a normal decorated window
 		glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
@@ -218,7 +222,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		if (errCode != 0)
 			return errCode;
 
-		// Make the window's context current
+		/// Make the window's context current
 		glfwMakeContextCurrent(window.get());
 
 		glewExperimental = GL_TRUE;
@@ -229,7 +233,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 
 		AddTexture();
 
-		// Build shaders
+		/// Build shaders
 		GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
 		glCompileShader(vertexShader);
@@ -243,7 +247,8 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		glAttachShader(shaderProgram, vertexShader);
 		glAttachShader(shaderProgram, fragmentShader);
 		glLinkProgram(shaderProgram);
-		// check for linking errors
+		
+		/// check for linking errors
 		int success;
 		char infoLog[512];
 		glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
@@ -259,7 +264,7 @@ int FaceConstruction::Create3DFace(string objfilepath)
 
 		glDeleteProgram(shaderProgram);
 
-		//Destroy the window before terminating glfw
+		/// Destroy the window before terminating glfw
 		glfwDestroyWindow(window.get());
 		glfwTerminate();
 	}
@@ -277,18 +282,23 @@ int FaceConstruction::Create3DFace(string objfilepath)
 	return 0;
 }
 
+/**
+ * @brief Maps co-ordinates from 2D to 3D space
+ * @param shaderID Handle to OpenGL program object
+ * @return 0 if Success
+ */
 int FaceConstruction::SetShader(GLuint shaderID)
 {
 	try
 	{
-		// Model
+		/// Model
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::scale(model, glm::vec3(0.01f));  // shrink face
 
-		// View (move camera back)
+		/// View (move camera back)
 		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -3.0f));
 
-		// Projection
+		/// Projection
 		glm::mat4 projection = glm::perspective(
 			glm::radians(45.0f),
 			(float)winWidth / (float)winHeight,
@@ -296,7 +306,7 @@ int FaceConstruction::SetShader(GLuint shaderID)
 			100.0f
 		);
 
-		// Send to shader
+		/// Send to shader
 		glUniformMatrix4fv(glGetUniformLocation(shaderID, "model"), 1, GL_FALSE, glm::value_ptr(model));
 		glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -315,14 +325,18 @@ int FaceConstruction::SetShader(GLuint shaderID)
 	return 0;
 }
 
+/**
+ * @brief Creates display window to display 3D face
+ * @return 0 if Success
+ */
 int FaceConstruction::CreateDisplayWindow()
 {
 	try
 	{
-		// Create window (not fullscreen)
+		/// Create window (not fullscreen)
 		window = CreateGLFWWindow();
 
-		// Make it maximized - fills the whole screen but keeps title bar + buttons
+		/// Make it maximized - fills the whole screen but keeps title bar + buttons
 		glfwMaximizeWindow(window.get());
 
 		glfwMakeContextCurrent(window.get());
@@ -346,6 +360,10 @@ int FaceConstruction::CreateDisplayWindow()
 	return 0;
 }
 
+/**
+ * @brief Creates GLFW window to display 3D face
+ * @return 0 if Success
+ */
 GLFWwindowInstance FaceConstruction::CreateGLFWWindow()
 {
 	GLFWwindow* win = glfwCreateWindow(winWidth, winHeight, "3D Face", NULL, NULL);
@@ -359,31 +377,39 @@ GLFWwindowInstance FaceConstruction::CreateGLFWWindow()
 }
 
 
+/**
+ * @brief Renders face mesh in GLFW window
+ * @param shaderID Handle to OpenGL program object
+ * @param vertexBuffer Texture co-ords
+ * @param indices Indexed drawing optimizes performance by reusing
+ *			shared vertices
+ * @return 0 if Success
+ */
 int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuffer, std::vector<unsigned int> indices)
 {
 	try
 	{
 		GLuint VAO, VBO, EBO;
-		// Setup OpenGL buffers
+		/// Setup OpenGL buffers
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glGenBuffers(1, &EBO);
 
 		glBindVertexArray(VAO);
 
-		// VBO: store vertices
+		/// VBO: store vertices
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
 		glBufferData(GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(Vertex), vertexBuffer.data(), GL_STATIC_DRAW);
 
-		// EBO: store indices
+		/// EBO: store indices
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-		// Position attribute
+		/// Position attribute
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 		glEnableVertexAttribArray(0);
 
-		// TexCoord attribute
+		/// TexCoord attribute
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
 		glEnableVertexAttribArray(1);
 
@@ -394,37 +420,37 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 				glfwSetWindowShouldClose(window.get(),
 					true);
 
-			// Colour the background in light gray
+			/// Colour the background in light gray
 			glClearColor(0.827f, 0.827f, 0.827f, 0.0f);
 			glClear(GL_COLOR_BUFFER_BIT);
 
-			// Use shader
+			/// Use shader
 			glUseProgram(shaderID);
 
-			// Activate and bind texture unit 0
+			/// Activate and bind texture unit 0
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, textureID);
 
-			// Tell shader sampler to use texture unit 0
+			/// Tell shader sampler to use texture unit 0
 			glUniform1i(glGetUniformLocation(shaderID, "ourTexture"), 0);
 
 			glBindVertexArray(VAO);
 			SetShader(shaderID);
 
-			// Fill the triangles with color
+			/// Fill the triangles with color
 			glUniform3f(glGetUniformLocation(shaderID, "color"), 1.0f, 0.8f, 0.8f);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
 
 			glUseProgram(shaderID);
-			glUniform3f(glGetUniformLocation(shaderID, "color"), 0.0f, 0.0f, 0.0f); // border color
+			glUniform3f(glGetUniformLocation(shaderID, "color"), 0.0f, 0.0f, 0.0f); /// border color
 
-			// Draw the border of the triangles
+			/// Draw the border of the triangles
 			glLineWidth(1.5f);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
 
-			// restore
+			/// restore
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 			glfwSwapBuffers(window.get());
@@ -449,6 +475,11 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 	return 0;
 }
 
+/**
+ * @brief Generates Texture object and transfers to OpenGL system
+ *			for GPU access
+ * @return 0 if Success
+ */
 int FaceConstruction::AddTexture()
 {
 	try
@@ -456,15 +487,15 @@ int FaceConstruction::AddTexture()
 		glGenTextures(1, &textureID);
 		glBindTexture(GL_TEXTURE_2D, textureID);
 
-		// Set filtering & wrapping
+		/// Set filtering & wrapping
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+		/// The face appears inverted without this
 		stbi_set_flip_vertically_on_load(true);
 
-		// Load image (e.g., with stb_image)
 		int width, height, nrChannels;
 		unsigned char* data = stbi_load(OUT_DIR "Face.texture.png", &width, &height, &nrChannels, 0);
 
@@ -494,23 +525,27 @@ int FaceConstruction::AddTexture()
 	return 0;
 }
 
-// Detect facial landmarks using ML model file. This loads data
-// into OpenCV's Facemark API
+/**
+ * @brief Detect facial landmarks using ML model file. This loads data
+ *			into OpenCV's Facemark API
+ * @param img Input 2D image
+ * @param facialLandmarks Facial landmark points
+ * @param Rectangles of detected faces
+ * @return 0 if Success
+ */
 int FaceConstruction::DetectFacialLandmarks(const cv::Mat& img, vector<vector<Point2f>>& facialLandmarks,
 	vector<Rect>& faces)
 {
 	try
 	{
-		// Detects front facing human face
+		/// Detects front facing human face
 		CascadeClassifier faceCascade;
 		faceCascade.load(DATA_DIR "haarcascade_frontalface_alt.xml");
 
-		// Detects facial landmarks using pre-trained model
+		/// Detects facial landmarks using pre-trained model
 		Ptr<Facemark> facemark = FacemarkLBF::create();
 		facemark->loadModel(DATA_DIR "lbfmodel.yaml");
-		cout << "Loaded model" << endl;
-
-		resize(img, img, Size(460, 460), 0, 0, INTER_LINEAR_EXACT);
+		cout << "Loaded face detection model..." << endl;
 
 		Mat gray;
 		if (img.channels() > 1)
@@ -519,7 +554,7 @@ int FaceConstruction::DetectFacialLandmarks(const cv::Mat& img, vector<vector<Po
 		}
 		else
 		{
-			// This is gray scale image
+			/// This is gray scale image
 			gray = img.clone();
 		}
 		equalizeHist(gray, gray);
@@ -530,16 +565,18 @@ int FaceConstruction::DetectFacialLandmarks(const cv::Mat& img, vector<vector<Po
 		{
 			for (size_t i = 0; i < faces.size(); i++)
 			{
-				// This draws a rectangle around the detected face
+				/// This draws a rectangle around the detected face
 				cv::rectangle(img, faces[i], Scalar(255, 0, 0));
 			}
 			for (unsigned long i = 0; i < faces.size(); i++)
 			{
-				// This draws dots at the facial landmarks
+				/// This draws dots at the facial landmarks
 				for (unsigned long k = 0; k < facialLandmarks[i].size(); k++)
 					cv::circle(img, facialLandmarks[i][k], 1, cv::Scalar(0, 0, 255));
 			}
-			imshow("Detected_shape", img);
+
+			/// Enable only if you want to see the facial landmark points.
+			//imshow("Detected_shape", img);
 		}
 	}
 	catch (const std::exception& e)
@@ -556,10 +593,15 @@ int FaceConstruction::DetectFacialLandmarks(const cv::Mat& img, vector<vector<Po
 	return 0;
 }
 
-/*
-* This functions fits facial landmarks onto Surrey 3DMM
-*/
-int FaceConstruction::LoadFaceModel(const cv::Mat& img, string objfilepath, vector<vector<Point2f>>& facialLandmarks,
+/**
+ * @brief Fits facial landmarks onto Surrey 3DMM
+ * @param img Input 2D image
+ * @param objfilepath Location path of obj file
+ * @param facialLandmarks Facial landmark points
+ * @param Rectangles of detected faces
+ * @return 0 if Success
+ */
+int FaceConstruction::LoadFaceModel(const cv::Mat& img, string& objfilepath, vector<vector<Point2f>>& facialLandmarks,
 	vector<Rect>& faces)
 {
 	try
@@ -568,6 +610,7 @@ int FaceConstruction::LoadFaceModel(const cv::Mat& img, string objfilepath, vect
 		try
 		{
 			morphable_model = morphablemodel::load_model(DATA_DIR "sfm_shape_3448.bin");
+			cout << "Loaded 3DMM Model..." << endl;
 		}
 		catch (const std::runtime_error& e)
 		{
@@ -575,7 +618,7 @@ int FaceConstruction::LoadFaceModel(const cv::Mat& img, string objfilepath, vect
 			return EXIT_FAILURE;
 		}
 
-		// Load Landmark mappings file
+		/// Load Landmark mappings file
 		core::LandmarkMapper landmark_mapper;
 		try
 		{
@@ -587,19 +630,19 @@ int FaceConstruction::LoadFaceModel(const cv::Mat& img, string objfilepath, vect
 			return EXIT_FAILURE;
 		}
 
-		// These will be the final 2D and 3D points used for the fitting:
+		/// These will be the final 2D and 3D points used for the fitting:
 		vector<Vector4f> model_points; // the points in the 3D shape model
 		vector<int> vertex_indices;    // their vertex indices
 		vector<Vector2f> image_points; // the corresponding 2D landmark points
 
-		// Sub-select all the landmarks which we have a mapping for (i.e. that are defined in the 3DMM):
+		/// Sub-select all the landmarks which we have a mapping for (i.e. that are defined in the 3DMM):
 		for (unsigned long i = 0; i < faces.size(); i++)
 		{
 			for (int k = 0; k < facialLandmarks[i].size(); ++k)
 			{
 				const auto converted_name = landmark_mapper.convert(std::to_string(k + 1));
 				if (!converted_name)
-				{ // no mapping defined for the current landmark
+				{ /// no mapping defined for the current landmark
 					continue;
 				}
 				const int vertex_idx = std::stoi(converted_name.value());
@@ -610,35 +653,38 @@ int FaceConstruction::LoadFaceModel(const cv::Mat& img, string objfilepath, vect
 			}
 		}
 
-		// Estimate the camera (pose) from the 2D - 3D point correspondences
+		/// Estimate the camera (pose) from the 2D - 3D point correspondences
 		fitting::ScaledOrthoProjectionParameters pose =
 			fitting::estimate_orthographic_projection_linear(image_points, model_points, true, img.rows);
 		fitting::RenderingParameters rendering_params(pose, img.cols, img.rows);
 
-		// The 3D head pose can be recovered as follows - the function returns an Eigen::Vector3f with yaw, pitch,
-		// and roll angles:
+		/// The 3D head pose can be recovered as follows - the function returns an Eigen::Vector3f with yaw, pitch,
+		/// and roll angles:
 		const float yaw_angle = rendering_params.get_yaw_pitch_roll()[0];
 
-		// Estimate the shape coefficients by fitting the shape to the landmarks:
+		/// Estimate the shape coefficients by fitting the shape to the landmarks:
 		const Eigen::Matrix<float, 3, 4> affine_from_ortho =
 			fitting::get_3x4_affine_camera_matrix(rendering_params, img.cols, img.rows);
 		const vector<float> fitted_coeffs = fitting::fit_shape_to_landmarks_linear(
 			morphable_model.get_shape_model(), affine_from_ortho, image_points, vertex_indices);
 
-		// Obtain the full mesh with the estimated coefficients:
+		/// Obtain the full mesh with the estimated coefficients:
 		const core::Mesh mesh = morphable_model.draw_sample(fitted_coeffs, vector<float>());
 
-		// Extract the texture from the image using given mesh and camera parameters:
+		cout << "Please Wait! Extracting texture from Image. This could take a few minutes..." << endl;
+		cout << "I am quite an old model. So kindly bear with me :)" << endl;
+
+		/// Extract the texture from the image using given mesh and camera parameters:
 		const core::Image4u texturemap =
 			render::extract_texture(mesh, rendering_params.get_modelview(), rendering_params.get_projection(),
 				render::ProjectionType::Orthographic, core::from_mat_with_alpha(img));
 
-		// Save the mesh as textured obj to the output path
+		/// Save the mesh as textured obj to the output path
 		std::filesystem::path outputfile = OUT_DIR "Face.obj";
 		core::write_textured_obj(mesh, outputfile.string());
 		objfilepath = outputfile.string();
 
-		// And save the texture map:
+		/// And save the texture map:
 		outputfile.replace_extension(".texture.png");
 		cv::imwrite(outputfile.string(), core::to_mat(texturemap));
 

@@ -1,10 +1,17 @@
 #pragma once
+/// @file FaceConstruction.h
+/// @brief Face detection, modelling and rendering functions
+/// @namespace std
 
 #include "Face_DataStructures.h"
 
 using namespace std;
 class GLFWwindow;
 
+/**
+ * @class FaceConstruction
+ * @brief 3D face model creation and rendering implementation
+ */
 class FaceConstruction
 {
 public:
@@ -16,12 +23,12 @@ public:
 	int Create3DFace(string objfilepath);
 
 private:
-	//Display - main thread
+	/// Display - main thread
 	int CreateDisplayWindow();
 	GLFWwindowInstance CreateGLFWWindow();
 
 	int DetectFacialLandmarks(const cv::Mat& img, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
-	int LoadFaceModel(const cv::Mat& img, string objfilepath, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
+	int LoadFaceModel(const cv::Mat& img, string& objfilepath, std::vector<std::vector<cv::Point2f>>& facialLandmarks, std::vector<cv::Rect>& faces);
 
 	int SetShader(GLuint shaderID);
 	int AddTexture();
