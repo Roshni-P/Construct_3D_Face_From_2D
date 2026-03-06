@@ -218,6 +218,9 @@ int FaceConstruction::Create3DFace(string objfilepath)
 		glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
+		// Window should have a depth buffer
+		glfwWindowHint(GLFW_DEPTH_BITS, 24);
+
 		int errCode = CreateDisplayWindow();
 		if (errCode != 0)
 			return errCode;
@@ -230,6 +233,11 @@ int FaceConstruction::Create3DFace(string objfilepath)
 			std::cerr << "Failed to initialize GLEW\n";
 			return -1;
 		}
+
+		// Added Depth for 3D face mask effect
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
 
 		AddTexture();
 
@@ -422,7 +430,7 @@ int FaceConstruction::RenderMesh(GLuint shaderID, std::vector<Vertex> vertexBuff
 
 			/// Colour the background in light gray
 			glClearColor(0.827f, 0.827f, 0.827f, 0.0f);
-			glClear(GL_COLOR_BUFFER_BIT);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			/// Use shader
 			glUseProgram(shaderID);
