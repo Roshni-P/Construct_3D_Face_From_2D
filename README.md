@@ -15,10 +15,10 @@ Seen below, is a sample 3D face mesh, generated internally during the model crea
 The 3D face models of sample images, are shown below:
 
 <img width="25%" alt="image" src="https://github.com/user-attachments/assets/af7aab9a-1f37-4083-bacf-04865dc5d640" />
-<img width="25%" alt="image" src="https://github.com/user-attachments/assets/b10d3867-f639-4df5-bae8-cc9739d29003" />
+<img width="25%" alt="image" src="https://github.com/user-attachments/assets/8f23a7ff-3a13-4e64-9cad-dce8af6a2302" />
 <br>
 <img width="25%" alt="image" src="https://github.com/user-attachments/assets/6c1e1c24-b290-4540-b5ef-fe758ae11e9b" />
-<img width="25%" alt="image" src="https://github.com/user-attachments/assets/1dd84d69-2592-4281-9bd4-61124c18abf3" />
+<img width="25%" alt="image" src="https://github.com/user-attachments/assets/26767069-fb8f-406c-9f91-3807369b5633" />
 
 
 ## Installation
